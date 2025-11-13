@@ -50,10 +50,10 @@ exports.handler = async (event, context) => {
       const data = await response.json();
       console.log("Webflow item data:", JSON.stringify(data.fieldData));
 
-      // Get like count - handle both string and number
-      let likesValue = data.fieldData["like-count"];
+      // Get like count from the field "template-like-count"
+      let likesValue = data.fieldData["template-like-count"];
       console.log(
-        "Raw like-count value:",
+        "Raw template-like-count value:",
         likesValue,
         "Type:",
         typeof likesValue
@@ -109,15 +109,16 @@ exports.handler = async (event, context) => {
       const currentData = await getResponse.json();
       console.log("Current item data:", JSON.stringify(currentData.fieldData));
 
-      // Get current likes and convert to number
-      let currentLikesValue = currentData.fieldData["like-count"];
+      // Get current likes from "template-like-count" field
+      let currentLikesValue = currentData.fieldData["template-like-count"];
       console.log(
-        "Current like-count:",
+        "Current template-like-count:",
         currentLikesValue,
         "Type:",
         typeof currentLikesValue
       );
 
+      // CRITICAL: Convert to number to prevent string concatenation
       let currentLikes = 0;
       if (typeof currentLikesValue === "number") {
         currentLikes = currentLikesValue;
@@ -129,11 +130,11 @@ exports.handler = async (event, context) => {
         currentLikes = 0;
       }
 
-      // Increment by 1
+      // Increment by 1 (as a number, NOT string concatenation)
       const newLikes = currentLikes + 1;
       console.log(`Incrementing: ${currentLikes} + 1 = ${newLikes}`);
 
-      // Update in Webflow - IMPORTANT: send as number
+      // Update in Webflow - send as NUMBER
       const updateResponse = await fetch(
         `https://api.webflow.com/v2/collections/${COLLECTION_ID}/items/${itemId}`,
         {
@@ -145,7 +146,7 @@ exports.handler = async (event, context) => {
           },
           body: JSON.stringify({
             fieldData: {
-              "like-count": newLikes,
+              "template-like-count": newLikes, // Field name matches Webflow CMS
             },
           }),
         }
