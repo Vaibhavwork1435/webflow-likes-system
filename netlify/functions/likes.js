@@ -11,8 +11,26 @@ exports.handler = async (event, context) => {
     return { statusCode: 200, headers, body: "" };
   }
 
-  const itemId = event.queryStringParameters?.itemId;
+  // ✅ FIX: Get itemId from query string (GET) OR body (POST)
+  let itemId;
 
+  if (event.httpMethod === "GET") {
+    itemId = event.queryStringParameters?.itemId;
+  } else if (event.httpMethod === "POST") {
+    // Parse the POST body to get itemId
+    try {
+      const body = JSON.parse(event.body);
+      itemId = body.itemId;
+    } catch (e) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: "Invalid JSON body" }),
+      };
+    }
+  }
+
+  // Validate itemId exists
   if (!itemId) {
     return {
       statusCode: 400,
