@@ -17,16 +17,20 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 400,
       headers,
-      body: JSON.stringify({ error: "itemId required" }),
+      body: JSON.stringify({ error: "itemId is required" }),
     };
   }
 
   const WEBFLOW_TOKEN = process.env.WEBFLOW_API_TOKEN;
   const COLLECTION_ID = process.env.WEBFLOW_COLLECTION_ID;
 
+  console.log("Processing request for itemId:", itemId);
+
   try {
     // GET: Retrieve current like count
     if (event.httpMethod === "GET") {
+      console.log("GET request - fetching current likes");
+
       const response = await fetch(
         `https://api.webflow.com/v2/collections/${COLLECTION_ID}/items/${itemId}`,
         {
@@ -38,28 +42,53 @@ exports.handler = async (event, context) => {
       );
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Webflow GET error:", response.status, errorText);
         throw new Error(`Webflow API error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("Webflow item data:", JSON.stringify(data.fieldData));
 
-      // IMPORTANT: Parse as number, ensure it's a number
-      const likesValue = data.fieldData["like-count"];
-      const likes =
-        typeof likesValue === "number" ? likesValue : parseInt(likesValue) || 0;
+      // Get like count - handle both string and number
+      let likesValue = data.fieldData["like-count"];
+      console.log(
+        "Raw like-count value:",
+        likesValue,
+        "Type:",
+        typeof likesValue
+      );
+
+      // Convert to number properly
+      let likes = 0;
+      if (typeof likesValue === "number") {
+        likes = likesValue;
+      } else if (typeof likesValue === "string") {
+        likes = parseInt(likesValue, 10);
+      }
+
+      // If NaN or undefined, default to 0
+      if (isNaN(likes)) {
+        likes = 0;
+      }
+
+      console.log("Parsed likes:", likes);
 
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
-          itemId,
+          itemId: itemId,
           likes: likes,
+          success: true,
         }),
       };
     }
 
     // POST: Increment like count
     if (event.httpMethod === "POST") {
+      console.log("POST request - incrementing likes");
+
       // First, get current count
       const getResponse = await fetch(
         `https://api.webflow.com/v2/collections/${COLLECTION_ID}/items/${itemId}`,
@@ -72,24 +101,39 @@ exports.handler = async (event, context) => {
       );
 
       if (!getResponse.ok) {
+        const errorText = await getResponse.text();
+        console.error("Webflow GET error:", getResponse.status, errorText);
         throw new Error(`Webflow API error: ${getResponse.status}`);
       }
 
       const currentData = await getResponse.json();
+      console.log("Current item data:", JSON.stringify(currentData.fieldData));
 
-      // CRITICAL FIX: Properly parse current likes as NUMBER
-      const currentLikesValue = currentData.fieldData["like-count"];
-      const currentLikes =
-        typeof currentLikesValue === "number"
-          ? currentLikesValue
-          : parseInt(currentLikesValue) || 0;
+      // Get current likes and convert to number
+      let currentLikesValue = currentData.fieldData["like-count"];
+      console.log(
+        "Current like-count:",
+        currentLikesValue,
+        "Type:",
+        typeof currentLikesValue
+      );
 
-      // Add 1 to the NUMBER
+      let currentLikes = 0;
+      if (typeof currentLikesValue === "number") {
+        currentLikes = currentLikesValue;
+      } else if (typeof currentLikesValue === "string") {
+        currentLikes = parseInt(currentLikesValue, 10);
+      }
+
+      if (isNaN(currentLikes)) {
+        currentLikes = 0;
+      }
+
+      // Increment by 1
       const newLikes = currentLikes + 1;
+      console.log(`Incrementing: ${currentLikes} + 1 = ${newLikes}`);
 
-      console.log(`Item ${itemId}: ${currentLikes} + 1 = ${newLikes}`); // Debug log
-
-      // Update with new count - send as NUMBER
+      // Update in Webflow - IMPORTANT: send as number
       const updateResponse = await fetch(
         `https://api.webflow.com/v2/collections/${COLLECTION_ID}/items/${itemId}`,
         {
@@ -101,25 +145,37 @@ exports.handler = async (event, context) => {
           },
           body: JSON.stringify({
             fieldData: {
-              "like-count": newLikes, // Send as number, not string
+              "like-count": newLikes,
             },
           }),
         }
       );
 
       if (!updateResponse.ok) {
-        const errorData = await updateResponse.text();
+        const errorText = await updateResponse.text();
+        console.error(
+          "Webflow UPDATE error:",
+          updateResponse.status,
+          errorText
+        );
         throw new Error(
-          `Webflow update error: ${updateResponse.status} - ${errorData}`
+          `Webflow update error: ${updateResponse.status} - ${errorText}`
         );
       }
+
+      const updatedData = await updateResponse.json();
+      console.log(
+        "Updated successfully:",
+        JSON.stringify(updatedData.fieldData)
+      );
 
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
-          itemId,
+          itemId: itemId,
           likes: newLikes,
+          success: true,
           message: "Like added successfully",
         }),
       };
@@ -131,13 +187,15 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error:", error.message);
+    console.error("Stack:", error.stack);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
         error: "Internal server error",
         details: error.message,
+        success: false,
       }),
     };
   }

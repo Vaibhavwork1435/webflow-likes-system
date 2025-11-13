@@ -1,7 +1,8 @@
 {
-  "name": "webflow-netlify-likes",
+  "name": "webflow-likes-netlify",
   "version": "1.0.0",
-  "description": "Netlify function for Webflow CMS likes",
+  "description": "Webflow likes system with Netlify Functions",
+  "main": "index.js",
   "dependencies": {
     "node-fetch": "^2.7.0"
   }
