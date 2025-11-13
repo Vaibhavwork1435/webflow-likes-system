@@ -14,7 +14,6 @@ exports.handler = async (event, context) => {
   }
 
   const itemId = event.queryStringParameters?.itemId;
-
   if (!itemId) {
     return {
       statusCode: 400,
@@ -50,7 +49,7 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           itemId,
-          likes: data.fieldData["like-count"] || 0,
+          likes: Number(data.fieldData["like-count"]) || 0, // ✅ cast to number
           name: data.fieldData.name,
         }),
       };
@@ -74,7 +73,7 @@ exports.handler = async (event, context) => {
       }
 
       const currentData = await getResponse.json();
-      const currentLikes = currentData.fieldData["like-count"] || 0;
+      const currentLikes = Number(currentData.fieldData["like-count"]) || 0; // ✅ fixed
       const newLikes = currentLikes + 1;
 
       // Update with new count
